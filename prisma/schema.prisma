@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  balance       Decimal   @default(100000) // Virtual starting balance
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  positions     Position[]
+  trades        Trade[]
+  signals       Signal[]
+  journalEntries JournalEntry[]
+  coachAlerts   CoachAlert[]
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  userId       String
+  symbol       String
+  quantity     Decimal
+  averagePrice Decimal
+  currentPrice Decimal?
+  unrealizedPnL Decimal @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+  @@index([userId])
+}
+
+model Trade {
+  id           String   @id @default(cuid())
+  userId       String
+  symbol       String
+  side         TradeSide
+  quantity     Decimal
+  price        Decimal
+  pnl          Decimal  @default(0)
+  status       TradeStatus @default(OPEN)
+  openedAt     DateTime @default(now())
+  closedAt     DateTime?
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  journalEntry JournalEntry?
+
+  @@index([userId])
+  @@index([symbol])
+  @@index([status])
+}
+
+model Signal {
+  id           String   @id @default(cuid())
+  userId       String
+  symbol       String
+  direction    SignalDirection
+  timeframe    String
+  entryPrice   Decimal
+  stopLoss     Decimal?
+  takeProfit   Decimal?
+  status       SignalStatus @default(PENDING)
+  source       String   @default("tradingview") // tradingview, manual, ai
+  metadata     Json?
+  receivedAt   DateTime @default(now())
+  triggeredAt  DateTime?
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([symbol])
+  @@index([status])
+}
+
+model JournalEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  tradeId      String   @unique
+  symbol       String
+  side         TradeSide
+  entryPrice   Decimal
+  exitPrice    Decimal
+  quantity     Decimal
+  pnl          Decimal
+  timeframe    String
+  aiCritique   String   // Structured AI critique
+  aiScore      Int?     // -100 to 100
+  concepts     String[] // ICT/SMC concepts identified
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trade        Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([symbol])
+}
+
+model CoachAlert {
+  id          String       @id @default(cuid())
+  userId      String
+  type        CoachAlertType
+  severity    AlertSeverity
+  message     String
+  data        Json?
+  acknowledged Boolean     @default(false)
+  createdAt   DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([acknowledged])
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  symbol    String
+  timestamp DateTime
+  open      Decimal
+  high      Decimal
+  low       Decimal
+  close     Decimal
+  volume    Decimal?
+
+  @@unique([symbol, timestamp])
+  @@index([symbol, timestamp])
+}
+
+model SignalStats {
+  id           String   @id @default(cuid())
+  symbol       String
+  direction    SignalDirection
+  timeframe    String
+  totalSignals Int      @default(0)
+  wins         Int      @default(0)
+  losses       Int      @default(0)
+  winRate      Float    @default(0)
+  avgReturn    Float    @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([symbol, direction, timeframe])
+}
+
+model MacroBriefing {
+  id        String   @id @default(cuid())
+  date      String   @unique
+  content   String?
+  events    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum SignalDirection {
+  LONG
+  SHORT
+}
+
+enum SignalStatus {
+  PENDING
+  TRIGGERED
+  EXPIRED
+  CANCELLED
+}
+
+enum CoachAlertType {
+  POSITION_SIZE_CREEP
+  REVENGE_TRADING
+  OVERTRADING
+  NEWS_TRADING
+  RISK_LIMIT_BREACH
+  PATTERN_DETECTED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}

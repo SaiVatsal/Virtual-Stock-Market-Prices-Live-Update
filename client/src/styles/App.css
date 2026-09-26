@@ -1,0 +1,18 @@
+.App {
+  text-align: center;
+  min-height: 100vh;
+}
+
+.MuiTableRow-root:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.MuiTableCell-head {
+  font-weight: 600 !important;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
