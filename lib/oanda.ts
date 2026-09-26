@@ -1,7 +1,17 @@
 // OANDA v20 REST API Client for paper trading
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+// Lazy PrismaClient initialization to avoid build-time issues on Vercel
+let prisma: PrismaClient | null = null
+
+function getPrisma(): PrismaClient {
+  if (!prisma) {
+    prisma = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    })
+  }
+  return prisma
+}
 
 interface OandaConfig {
   apiKey: string
@@ -134,7 +144,8 @@ export async function pollPrices(instruments: string[]): Promise<Map<string, num
     priceMap.set(price.instrument, midPrice)
 
     // Store in database for history
-    await prisma.priceHistory.upsert({
+    const p = getPrisma()
+    await p.priceHistory.upsert({
       where: {
         symbol_timestamp: {
           symbol: price.instrument,
